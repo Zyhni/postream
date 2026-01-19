@@ -1,3 +1,4 @@
+// pages/index.js
 import Head from 'next/head';
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { initFirebaseClient, getAuthInstance, getDbInstance } from '../lib/firebaseClient';
@@ -24,8 +25,6 @@ export default function Home() {
   const [uploading, setUploading] = useState(false);
   const [postCaption, setPostCaption] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const authRef = useRef(null);
   const dbRef = useRef(null);
   const provider = new GoogleAuthProvider();
@@ -246,7 +245,6 @@ export default function Home() {
       setPostCaption("");
       await loadRecent();
       alert("Upload completed successfully!");
-      setShowUploadModal(false);
       
     } catch (e) {
       console.error("Upload error:", e);
@@ -287,7 +285,6 @@ export default function Home() {
       setPostCaption("");
       await loadRecent();
       alert("Post created!");
-      setShowUploadModal(false);
     } catch (e) {
       console.error("Failed to create caption post:", e);
       alert("Failed to post caption: " + (e.message || String(e)));
@@ -462,7 +459,7 @@ export default function Home() {
                   ...prev, 
                   [`${postId}-${comment.id}`]: e.target.value 
                 }))}
-                onKeyDown={(e) => e.key === 'Enter' && handleCommentSubmit(postId, comment.id)}
+                onKeyPress={(e) => e.key === 'Enter' && handleCommentSubmit(postId, comment.id)}
               />
               <button 
                 className="send-reply-btn"
@@ -491,112 +488,18 @@ export default function Home() {
     return uploads.filter(p => (p.text || "").toLowerCase().includes(q));
   }, [uploads, searchQuery]);
 
-  // small helper: upload panel extracted so we can reuse in modal on mobile
-  function UploadPanel({ compact = false }) {
-    return (
-      <div className="upload-section">
-        <div className="section-header">
-          <i className="fas fa-cloud-upload-alt"></i>
-          <h3>Upload Content</h3>
-        </div>
-        <div className="file-upload-area">
-          <textarea
-            placeholder="Caption..."
-            value={postCaption}
-            onChange={e => setPostCaption(e.target.value)}
-            rows={compact ? 2 : 3}
-            style={{
-              width: '100%',
-              borderRadius: 8,
-              padding: 10,
-              resize: 'vertical',
-              background: 'rgba(255,255,255,0.03)',
-              color: '#fff',
-              border: '1px solid rgba(255,51,51,0.15)'
-            }}
-          />
-
-          <label className="file-input-label">
-            <div className="file-input-icon">
-              <i className="fas fa-folder-open"></i>
-            </div>
-            <div className="file-input-text">
-              <div className="file-input-title">Choose Files</div>
-              <div className="file-input-subtitle">PNG, JPG, MP4 up to 10MB</div>
-            </div>
-            <input 
-              type="file" 
-              multiple 
-              accept="image/*,video/*"
-              onChange={handleFileChange} 
-              className="file-input"
-              disabled={uploading}
-            />
-          </label>
-
-          {selectedFiles.length > 0 && (
-            <div className="selected-files-list">
-              <div className="selected-files-header">
-                <i className="fas fa-paperclip"></i>
-                <span>Selected Files ({selectedFiles.length})</span>
-              </div>
-              <div className="files-preview">
-                {selectedFiles.slice(0, 3).map((file, idx) => (
-                  <div key={idx} className="file-preview-item">
-                    <i className={file.type.startsWith('image/') ? "fas fa-image" : "fas fa-video"}></i>
-                    <span className="file-name">{file.name}</span>
-                    <span className="file-size">({(file.size / 1024 / 1024).toFixed(1)} MB)</span>
-                  </div>
-                ))}
-                {selectedFiles.length > 3 && (
-                  <div className="more-files-count">
-                    +{selectedFiles.length - 3} more files
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-          
-          <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
-            <button 
-              className={`upload-action-btn ${uploading ? 'uploading' : ''}`}
-              onClick={handleCreatePost}
-              disabled={uploading || (selectedFiles.length === 0 && !postCaption.trim())}
-              aria-disabled={uploading || (selectedFiles.length === 0 && !postCaption.trim())}
-            >
-              {uploading ? (
-                <>
-                  <i className="fas fa-spinner fa-spin"></i>
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <i className="fas fa-plus-circle"></i>
-                  Create Post
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
       <Head>
         <title>POSTREAM</title>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
       <div className="layout">
         {/* HEADER */}
         <header className="header">
           <div className="header-left">
-            <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(prev => !prev)} aria-label="Open menu">
-              <i className="fas fa-bars"></i>
-            </button>
             <div className="logo">
               <i className="fas fa-fire logo-icon"></i>
               <span>POSTREAM</span>
@@ -617,7 +520,7 @@ export default function Home() {
           <div className="header-right">
             {!user ? (
               <button className="login-btn" onClick={handleLogin}>
-                <i className="fab fa-google"></i> Login
+                <i className="fab fa-google"></i> Login with Google
               </button>
             ) : (
               <div className="user-info-header">
@@ -630,6 +533,13 @@ export default function Home() {
                     </div>
                   )}
                 </div>
+                <div className="user-details">
+                  <div className="user-name">{user.displayName}</div>
+                  <div className="user-status">
+                    <span className="status-dot"></span>
+                    Online
+                  </div>
+                </div>
                 <button className="logout-btn" onClick={handleLogout} title="Logout">
                   <i className="fas fa-sign-out-alt"></i>
                 </button>
@@ -638,52 +548,96 @@ export default function Home() {
           </div>
         </header>
 
-        {/* MOBILE OVERLAY SIDEBAR (when hamburger clicked) */}
-        {mobileMenuOpen && (
-          <div className="mobile-overlay" onClick={() => setMobileMenuOpen(false)}>
-            <div className="mobile-drawer" onClick={e => e.stopPropagation()}>
-              {user ? (
-                <div className="mobile-drawer-inner">
-                  <div className="profile-card mobile">
-                    <div className="profile-header">
-                      <div className="profile-avatar">
-                        {user.photoURL ? (
-                          <img src={user.photoURL} alt={user.displayName} />
-                        ) : (
-                          <div className="avatar-placeholder large">{user.displayName?.charAt(0) || 'U'}</div>
-                        )}
-                      </div>
-                      <div className="profile-info">
-                        <div className="profile-name">{user.displayName}</div>
-                        <div className="profile-email">{user.email}</div>
-                      </div>
-                    </div>
-                    <div style={{ padding: 16 }}>
-                      <div className="profile-stat">
-                        <div className="stat-value">{uploads.filter(u => u.ownerUid === user.uid).length}</div>
-                        <div className="stat-label">Posts</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ padding: 12 }}>
-                    <UploadPanel compact />
-                  </div>
-                </div>
-              ) : (
-                <div style={{ padding: 16 }}>
-                  <button className="login-btn" onClick={handleLogin} style={{ width: '100%' }}>Login with Google</button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* MAIN CONTENT */}
         <main className="main-content">
           {/* LEFT SIDEBAR */}
           <aside className="sidebar left-sidebar">
-            {user && <UploadPanel />}
+            {user && (
+              <div className="upload-section">
+                <div className="section-header">
+                  <i className="fas fa-cloud-upload-alt"></i>
+                  <h3>Upload Content</h3>
+                </div>
+                
+                <div className="file-upload-area">
+                  <textarea
+                    placeholder="Caption..."
+                    value={postCaption}
+                    onChange={e => setPostCaption(e.target.value)}
+                    rows={3}
+                    style={{
+                      width: '100%',
+                      borderRadius: 8,
+                      padding: 10,
+                      resize: 'vertical',
+                      background: 'rgba(255,255,255,0.03)',
+                      color: '#fff',
+                      border: '1px solid rgba(255,51,51,0.15)'
+                    }}
+                  />
+
+                  <label className="file-input-label">
+                    <div className="file-input-icon">
+                      <i className="fas fa-folder-open"></i>
+                    </div>
+                    <div className="file-input-text">
+                      <div className="file-input-title">Choose Files</div>
+                      <div className="file-input-subtitle">PNG, JPG, MP4 up to 10MB</div>
+                    </div>
+                    <input 
+                      type="file" 
+                      multiple 
+                      onChange={handleFileChange} 
+                      className="file-input"
+                      disabled={uploading}
+                    />
+                  </label>
+                  
+                  {selectedFiles.length > 0 && (
+                    <div className="selected-files-list">
+                      <div className="selected-files-header">
+                        <i className="fas fa-paperclip"></i>
+                        <span>Selected Files ({selectedFiles.length})</span>
+                      </div>
+                      <div className="files-preview">
+                        {selectedFiles.slice(0, 2).map((file, idx) => (
+                          <div key={idx} className="file-preview-item">
+                            <i className={file.type.startsWith('image/') ? "fas fa-image" : "fas fa-video"}></i>
+                            <span className="file-name">{file.name}</span>
+                            <span className="file-size">({(file.size / 1024 / 1024).toFixed(1)} MB)</span>
+                          </div>
+                        ))}
+                        {selectedFiles.length > 2 && (
+                          <div className="more-files-count">
+                            +{selectedFiles.length - 2} more files
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+                    <button 
+                      className={`upload-action-btn ${uploading ? 'uploading' : ''}`}
+                      onClick={handleCreatePost}
+                      disabled={uploading || (selectedFiles.length === 0 && !postCaption.trim())}
+                    >
+                      {uploading ? (
+                        <>
+                          <i className="fas fa-spinner fa-spin"></i>
+                          Creating...
+                        </>
+                      ) : (
+                        <>
+                          <i className="fas fa-plus-circle"></i>
+                          Create Post
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </aside>
 
           {/* MAIN FEED */}
@@ -711,7 +665,9 @@ export default function Home() {
                         {post.ownerPhoto ? (
                           <img src={post.ownerPhoto} alt={post.ownerName} />
                         ) : (
-                          <div className="avatar-placeholder">{post.ownerName?.charAt(0) || 'U'}</div>
+                          <div className="avatar-placeholder">
+                            {post.ownerName?.charAt(0) || 'U'}
+                          </div>
                         )}
                       </div>
                       <div className="author-details">
@@ -762,7 +718,7 @@ export default function Home() {
 
                   {/* POST ACTIONS */}
                   <div className="post-actions">
-                    <button className="post-action-btn" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+                    <button className="post-action-btn">
                       <i className="far fa-comment"></i>
                       <span>Comment</span>
                     </button>
@@ -791,7 +747,9 @@ export default function Home() {
                             {user.photoURL ? (
                               <img src={user.photoURL} alt={user.displayName} />
                             ) : (
-                              <div className="avatar-placeholder small">{user.displayName?.charAt(0) || 'U'}</div>
+                              <div className="avatar-placeholder small">
+                                {user.displayName?.charAt(0) || 'U'}
+                              </div>
                             )}
                           </div>
                           <div className="comment-input-group">
@@ -800,7 +758,7 @@ export default function Home() {
                               placeholder="Write a comment..."
                               value={commentText[post.id] || ""}
                               onChange={e => setCommentText(prev => ({ ...prev, [post.id]: e.target.value }))}
-                              onKeyDown={(e) => e.key === 'Enter' && handleCommentSubmit(post.id)}
+                              onKeyPress={(e) => e.key === 'Enter' && handleCommentSubmit(post.id)}
                               className="comment-input"
                             />
                             <button 
@@ -829,7 +787,9 @@ export default function Home() {
                     {user.photoURL ? (
                       <img src={user.photoURL} alt={user.displayName} />
                     ) : (
-                      <div className="avatar-placeholder large">{user.displayName?.charAt(0) || 'U'}</div>
+                      <div className="avatar-placeholder large">
+                        {user.displayName?.charAt(0) || 'U'}
+                      </div>
                     )}
                   </div>
                   <div className="profile-info">
@@ -854,26 +814,6 @@ export default function Home() {
             )}
           </aside>
         </main>
-
-        {/* FLOATING FAB for mobile to open upload modal */}
-        <button className="upload-fab" onClick={() => setShowUploadModal(true)} aria-label="Open upload">
-          <i className="fas fa-plus"></i>
-        </button>
-
-        {/* Upload modal for mobile */}
-        {showUploadModal && (
-          <div className="upload-modal" onClick={() => setShowUploadModal(false)}>
-            <div className="upload-modal-inner" onClick={e => e.stopPropagation()}>
-              <div className="upload-modal-header">
-                <h3>Create Post</h3>
-                <button className="close-modal-btn" onClick={() => setShowUploadModal(false)} aria-label="Close">✕</button>
-              </div>
-              <div className="upload-modal-body">
-                <UploadPanel compact />
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       <style jsx global>{`
@@ -889,24 +829,21 @@ export default function Home() {
           color: #fff;
           line-height: 1.5;
           overflow-x: hidden;
-          -webkit-font-smoothing: antialiased;
-          -webkit-tap-highlight-color: transparent;
         }
 
         /* HEADER */
-        .header { position: fixed; top: 0; left: 0; right: 0; height: 60px; background: linear-gradient(90deg,#1a0000 0%,#330000 100%); border-bottom: 1px solid rgba(255,0,0,0.2); display:flex; align-items:center; padding:0 16px; z-index:1000; }
-        .header-left { display:flex; align-items:center; width: 240px; gap:8px; }
-        .mobile-menu-btn { display:none; background:transparent; border:none; color:#ff6666; font-size:20px; width:40px; height:40px; border-radius:8px; }
-        .logo { display:flex; align-items:center; gap:10px; font-size:20px; font-weight:800; background: linear-gradient(45deg,#ff3333,#ff6666); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .header { position: fixed; top: 0; left: 0; right: 0; height: 60px; background: linear-gradient(90deg,#1a0000 0%,#330000 100%); border-bottom: 1px solid rgba(255,0,0,0.2); display:flex; align-items:center; padding:0 24px; z-index:1000; }
+        .header-left { display:flex; align-items:center; width: 240px; }
+        .logo { display:flex; align-items:center; gap:10px; font-size:24px; font-weight:800; background: linear-gradient(45deg,#ff3333,#ff6666); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
         .header-center { flex: 1; display:flex; justify-content:center; }
-        .search-input { width: 60%; max-width: 520px; min-width: 180px; padding: 8px 12px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02); color: #fff; outline: none; }
+        .search-input { width: 60%; max-width: 520px; min-width: 220px; padding: 8px 12px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02); color: #fff; outline: none; }
         .search-input::placeholder { color: #bbb; }
         .header-right { display:flex; align-items:center; gap:12px; width: 260px; justify-content:flex-end; }
 
         .login-btn {
           background: linear-gradient(45deg, #ff3333, #ff6666);
           border: none;
-          padding: 8px 12px;
+          padding: 10px 20px;
           border-radius: 8px;
           color: white;
           font-weight: 600;
@@ -915,18 +852,22 @@ export default function Home() {
           align-items: center;
           gap: 8px;
           transition: all 0.3s ease;
-          font-size: 13px;
+        }
+
+        .login-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(255, 51, 51, 0.3);
         }
 
         .user-info-header {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 12px;
         }
 
         .user-avatar-header {
-          width: 36px;
-          height: 36px;
+          width: 40px;
+          height: 40px;
           border-radius: 50%;
           overflow: hidden;
           border: 2px solid #ff3333;
@@ -936,6 +877,37 @@ export default function Home() {
           width: 100%;
           height: 100%;
           object-fit: cover;
+        }
+
+        .user-details {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .user-name {
+          font-weight: 600;
+          font-size: 14px;
+        }
+
+        .user-status {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 12px;
+          color: #00ff00;
+        }
+
+        .status-dot {
+          width: 8px;
+          height: 8px;
+          background: #00ff00;
+          border-radius: 50%;
+          animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
         }
 
         .logout-btn {
@@ -952,7 +924,9 @@ export default function Home() {
           transition: all 0.3s ease;
         }
 
-        .logout-btn:hover { background: rgba(255,0,0,0.16); }
+        .logout-btn:hover {
+          background: rgba(255, 0, 0, 0.2);
+        }
 
         /* MAIN LAYOUT */
         .main-content {
@@ -966,116 +940,1131 @@ export default function Home() {
         }
 
         @media (max-width: 1200px) {
-          .main-content { grid-template-columns: 280px 1fr; }
-          .right-sidebar { display: none; }
-        }
-
-        @media (max-width: 900px) {
-          .header { padding: 0 12px; }
-          .header-left { width: auto; }
-          .mobile-menu-btn { display: inline-flex; align-items:center; justify-content:center; }
-          .search-input { width: 70%; }
+          .main-content {
+            grid-template-columns: 280px 1fr;
+          }
+          .right-sidebar {
+            display: none;
+          }
         }
 
         @media (max-width: 768px) {
-          .main-content { grid-template-columns: 1fr; padding: 0 12px; }
-          .left-sidebar { display: none; }
-          .header-center { display: none; }
-          .header-right { width: auto; }
-          .logo { font-size: 18px; }
-
-          /* FAB */
-          .upload-fab { display: flex; }
+          .main-content {
+            grid-template-columns: 1fr;
+            padding: 0 16px;
+          }
+          .left-sidebar {
+            display: none;
+          }
         }
 
-        /* MOBILE OVERLAY */
-        .mobile-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1200; display:flex; }
-        .mobile-drawer { width: 320px; max-width: 92%; background: rgba(10,10,10,0.98); padding: 12px; overflow:auto; }
-
-        /* LEFT SIDEBAR */
-        .sidebar { position: sticky; top: 80px; height: fit-content; }
+        /* SIDEBARS */
+        .sidebar {
+          position: sticky;
+          top: 80px;
+          height: fit-content;
+        }
 
         /* LEFT SIDEBAR */
         .upload-section {
           background: rgba(26, 0, 0, 0.8);
           border: 1px solid rgba(255, 0, 0, 0.2);
           border-radius: 16px;
-          padding: 16px;
+          padding: 20px;
           margin-bottom: 20px;
           backdrop-filter: blur(10px);
         }
 
-        .section-header { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
-        .section-header i { color: #ff3333; font-size: 18px; }
-        .section-header h3 { font-size: 16px; color:white; margin:0; }
+        .section-header {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 20px;
+        }
 
-        .file-input-label { display:flex; align-items:center; gap:12px; padding:12px; background: rgba(255, 51, 51, 0.03); border: 2px dashed rgba(255, 51, 51, 0.12); border-radius: 10px; cursor:pointer; }
-        .file-input-icon { width:40px; height:40px; display:flex; align-items:center; justify-content:center; border-radius:8px; background: rgba(255,51,51,0.06); }
+        .section-header i {
+          color: #ff3333;
+          font-size: 20px;
+        }
 
-        .file-input { display:none; }
+        .section-header h3 {
+          font-size: 18px;
+          color: white;
+        }
 
-        .selected-files-list { background: rgba(0,0,0,0.22); border-radius:10px; padding:10px; }
-        .files-preview { display:flex; flex-direction:column; gap:8px; }
-        .file-preview-item { display:flex; align-items:center; gap:8px; padding:8px; background: rgba(255,255,255,0.03); border-radius:8px; font-size:13px; }
-        .file-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .file-upload-area {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
 
-        .upload-action-btn { width:100%; background: linear-gradient(45deg, #ff3333, #ff6666); border:none; padding:12px; border-radius:10px; color:white; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; }
+        .file-input-label {
+          display: flex;
+          align-items: center;
+          gap: 15px;
+          padding: 20px;
+          background: rgba(255, 51, 51, 0.05);
+          border: 2px dashed rgba(255, 51, 51, 0.3);
+          border-radius: 12px;
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
 
-        .upload-action-btn:disabled { opacity:0.6; cursor:not-allowed; }
+        .file-input-label:hover {
+          background: rgba(255, 51, 51, 0.1);
+          border-color: rgba(255, 51, 51, 0.5);
+        }
+
+        .file-input-icon {
+          width: 48px;
+          height: 48px;
+          background: rgba(255, 51, 51, 0.1);
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .file-input-icon i {
+          font-size: 24px;
+          color: #ff3333;
+        }
+
+        .file-input-text {
+          flex: 1;
+        }
+
+        .file-input-title {
+          font-weight: 600;
+          color: white;
+          margin-bottom: 4px;
+        }
+
+        .file-input-subtitle {
+          font-size: 13px;
+          color: #888;
+        }
+
+        .file-input {
+          display: none;
+        }
+
+        .selected-files-list {
+          background: rgba(0, 0, 0, 0.3);
+          border-radius: 12px;
+          padding: 16px;
+        }
+
+        .selected-files-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 12px;
+          font-size: 14px;
+          color: #888;
+        }
+
+        .files-preview {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .file-preview-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px;
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 8px;
+          font-size: 13px;
+        }
+
+        .file-preview-item i {
+          color: #ff3333;
+          width: 16px;
+        }
+
+        .file-name {
+          flex: 1;
+          color: white;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .file-size {
+          color: #888;
+          font-size: 11px;
+        }
+
+        .more-files-count {
+          text-align: center;
+          padding: 8px;
+          color: #ff6666;
+          font-size: 12px;
+          background: rgba(255, 51, 51, 0.1);
+          border-radius: 6px;
+        }
+
+        .upload-action-btn {
+          width: 100%;
+          background: linear-gradient(45deg, #ff3333, #ff6666);
+          border: none;
+          padding: 14px;
+          border-radius: 12px;
+          color: white;
+          font-weight: 600;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          transition: all 0.3s ease;
+          font-size: 16px;
+        }
+
+        .upload-action-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .upload-action-btn:not(:disabled):hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(255, 51, 51, 0.4);
+        }
+
+        .stats-section {
+          background: rgba(26, 0, 0, 0.8);
+          border: 1px solid rgba(255, 0, 0, 0.2);
+          border-radius: 16px;
+          padding: 20px;
+          backdrop-filter: blur(10px);
+        }
+
+        .stats-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 15px;
+        }
+
+        .stat-card {
+          text-align: center;
+          padding: 20px;
+          background: rgba(255, 51, 51, 0.1);
+          border-radius: 12px;
+          border: 1px solid rgba(255, 51, 51, 0.2);
+        }
+
+        .stat-number {
+          font-size: 32px;
+          font-weight: 800;
+          color: #ff3333;
+          margin-bottom: 4px;
+        }
+
+        .stat-label {
+          font-size: 13px;
+          color: #888;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        /* MAIN FEED */
+        .main-feed {
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+
+        .empty-state {
+          text-align: center;
+          padding: 60px 40px;
+          background: rgba(26, 0, 0, 0.8);
+          border: 1px solid rgba(255, 0, 0, 0.2);
+          border-radius: 16px;
+          backdrop-filter: blur(10px);
+        }
+
+        .empty-state-icon {
+          font-size: 64px;
+          color: #ff3333;
+          opacity: 0.5;
+          margin-bottom: 20px;
+        }
+
+        .empty-state h3 {
+          font-size: 24px;
+          margin-bottom: 10px;
+          color: white;
+        }
+
+        .empty-state p {
+          color: #888;
+          margin-bottom: 30px;
+        }
+
+        .empty-state-btn {
+          background: linear-gradient(45deg, #ff3333, #ff6666);
+          border: none;
+          padding: 12px 30px;
+          border-radius: 8px;
+          color: white;
+          font-weight: 600;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          transition: all 0.3s ease;
+        }
+
+        .empty-state-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(255, 51, 51, 0.3);
+        }
 
         /* POST CARD */
-        .post-card { background: rgba(26, 0, 0, 0.8); border: 1px solid rgba(255, 0, 0, 0.12); border-radius:12px; overflow:hidden; backdrop-filter: blur(6px); }
-        .post-header { display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid rgba(255,255,255,0.03); }
-        .post-avatar { width:44px; height:44px; border-radius:50%; overflow:hidden; border:2px solid #ff3333; }
-        .avatar-placeholder { width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:white; font-weight:700; }
+        .post-card {
+          background: rgba(26, 0, 0, 0.8);
+          border: 1px solid rgba(255, 0, 0, 0.2);
+          border-radius: 16px;
+          overflow: hidden;
+          backdrop-filter: blur(10px);
+        }
 
-        .post-media-container { width:100%; max-height:640px; overflow:hidden; background:#000; display:flex; align-items:center; justify-content:center; }
-        .post-media-image { width:100%; height:auto; max-height:640px; object-fit:contain; display:block; }
-        .post-media-video { width:100%; max-height:640px; height:auto; }
+        .post-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 20px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
 
-        .post-actions { display:flex; padding:10px; border-top:1px solid rgba(255,255,255,0.03); border-bottom:1px solid rgba(255,255,255,0.03); }
-        .post-action-btn { flex:1; background:none; border:none; color:#ddd; cursor:pointer; padding:8px; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:6px; }
+        .post-author-info {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
 
-        /* COMMENTS */
-        .comments-section { padding:12px; }
-        .comment-item { display:flex; gap:12px; margin-bottom:12px; }
-        .comment-item.reply { margin-left:36px; }
-        .comment-avatar { width:36px; height:36px; border-radius:50%; overflow:hidden; }
-        .comment-content { flex:1; }
-        .comment-author { font-weight:700; color:white; font-size:14px; }
-        .comment-text { color:#ccc; font-size:14px; }
+        .post-avatar {
+          width: 48px;
+          height: 48px;
+          border-radius: 50%;
+          overflow: hidden;
+          border: 2px solid #ff3333;
+        }
 
-        .reply-input-container input { padding:8px 12px; border-radius:20px; border:1px solid rgba(255,51,51,0.12); background:rgba(255,255,255,0.03); color:white; }
+        .post-avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .avatar-placeholder {
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(45deg, #ff3333, #ff6666);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-weight: bold;
+        }
+
+        .avatar-placeholder.small {
+          font-size: 14px;
+        }
+
+        .avatar-placeholder.large {
+          font-size: 24px;
+        }
+
+        .author-details {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .author-name {
+          font-weight: 600;
+          color: white;
+        }
+
+        .post-time {
+          font-size: 13px;
+          color: #888;
+        }
+
+        .post-menu-btn {
+          background: none;
+          border: none;
+          color: #888;
+          width: 36px;
+          height: 36px;
+          border-radius: 8px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.3s ease;
+        }
+
+        /* download button has same base style but show download hover */
+        .download-btn:hover {
+          background: rgba(255, 255, 255, 0.03);
+          color: #fff;
+        }
+
+        .post-menu-btn:hover {
+          background: rgba(255, 255, 255, 0.05);
+          color: white;
+        }
+
+        .post-caption {
+          padding: 0 20px 20px;
+          color: white;
+          font-size: 15px;
+          line-height: 1.5;
+        }
+
+        .post-media-container {
+          width: 100%;
+          max-height: 600px;
+          overflow: hidden;
+          background: #000;
+        }
+
+        .post-media-image {
+          width: 100%;
+          max-height: 600px;
+          object-fit: contain;
+          display: block;
+        }
+
+        .post-media-video {
+          width: 100%;
+          max-height: 600px;
+          display: block;
+        }
+
+        .post-actions {
+          display: flex;
+          padding: 16px 20px;
+          border-top: 1px solid rgba(255, 255, 255, 0.05);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .post-action-btn {
+          flex: 1;
+          background: none;
+          border: none;
+          color: #888;
+          cursor: pointer;
+          padding: 10px;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          transition: all 0.3s ease;
+          font-size: 14px;
+        }
+
+        .post-action-btn:hover {
+          color: white;
+          background: rgba(255, 51, 51, 0.1);
+        }
+
+        /* COMMENTS SECTION */
+        .comments-section {
+          padding: 20px;
+        }
+
+        .comments-list {
+          margin-bottom: 20px;
+        }
+
+        .no-comments {
+          text-align: center;
+          padding: 20px;
+          color: #666;
+          font-style: italic;
+          font-size: 14px;
+        }
+
+        .view-all-comments {
+          width: 100%;
+          background: none;
+          border: none;
+          color: #ff6666;
+          padding: 10px;
+          cursor: pointer;
+          font-size: 14px;
+          text-align: center;
+          transition: all 0.3s ease;
+        }
+
+        .view-all-comments:hover {
+          color: #ff3333;
+        }
+
+        .comment-item {
+          display: flex;
+          gap: 12px;
+          margin-bottom: 16px;
+        }
+
+        .comment-item.reply {
+          margin-left: 40px;
+        }
+
+        .comment-avatar {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          overflow: hidden;
+          flex-shrink: 0;
+          border: 1px solid rgba(255, 51, 51, 0.3);
+        }
+
+        .comment-avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .comment-content {
+          flex: 1;
+        }
+
+        .comment-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 4px;
+        }
+
+        .comment-author {
+          font-weight: 600;
+          color: white;
+          font-size: 14px;
+        }
+
+        .comment-time {
+          font-size: 11px;
+          color: #666;
+        }
+
+        .comment-text {
+          color: #ccc;
+          font-size: 14px;
+          line-height: 1.4;
+          margin-bottom: 8px;
+        }
+
+        .comment-actions {
+          display: flex;
+          gap: 12px;
+        }
+
+        .comment-action-btn {
+          background: none;
+          border: none;
+          color: #888;
+          cursor: pointer;
+          font-size: 12px;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          transition: all 0.3s ease;
+          padding: 4px 8px;
+          border-radius: 6px;
+        }
+
+        .comment-action-btn:hover {
+          color: #ff3333;
+          background: rgba(255, 51, 51, 0.1);
+        }
+
+        .reply-input-container {
+          display: flex;
+          gap: 10px;
+          margin-top: 12px;
+        }
+
+        .reply-input-container input {
+          flex: 1;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 51, 51, 0.3);
+          border-radius: 20px;
+          padding: 10px 15px;
+          color: white;
+          font-size: 13px;
+          outline: none;
+          transition: all 0.3s ease;
+        }
+
+        .reply-input-container input:focus {
+          border-color: #ff3333;
+        }
+
+        .send-reply-btn {
+          background: linear-gradient(45deg, #ff3333, #ff6666);
+          border: none;
+          color: white;
+          padding: 10px 20px;
+          border-radius: 20px;
+          cursor: pointer;
+          font-size: 13px;
+          font-weight: 600;
+          transition: all 0.3s ease;
+        }
+
+        .send-reply-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(255, 51, 51, 0.3);
+        }
+
+        .replies-container {
+          margin-top: 12px;
+          border-left: 2px solid rgba(255, 51, 51, 0.2);
+          padding-left: 16px;
+        }
 
         /* ADD COMMENT FORM */
-        .add-comment-form { margin-top:12px; }
-        .comment-input-wrapper { display:flex; align-items:center; gap:8px; }
-        .comment-input-group { flex:1; display:flex; gap:8px; align-items:center; background: rgba(255,255,255,0.02); padding:6px 8px; border-radius:24px; }
-        .comment-input { flex:1; background:none; border:none; color:white; outline:none; padding:8px; }
-        .comment-submit-btn { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:none; background:linear-gradient(45deg,#ff3333,#ff6666); color:white; }
+        .add-comment-form {
+          margin-top: 20px;
+        }
 
-        /* PROFILE CARD */
-        .profile-card { background: rgba(26, 0, 0, 0.8); border-radius:12px; padding:16px; }
+        .comment-input-wrapper {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
 
-        /* FAB */
-        .upload-fab { position: fixed; right: 16px; bottom: 18px; width:56px; height:56px; border-radius:50%; background:linear-gradient(45deg,#ff3333,#ff6666); display:none; align-items:center; justify-content:center; border:none; z-index:1400; box-shadow:0 8px 24px rgba(0,0,0,0.5); color:white; font-size:20px; }
+        .comment-avatar-small {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          overflow: hidden;
+          flex-shrink: 0;
+          border: 1px solid rgba(255, 51, 51, 0.3);
+        }
 
-        /* UPLOAD MODAL */
-        .upload-modal { position:fixed; inset:0; background: rgba(0,0,0,0.6); display:flex; align-items:flex-end; z-index:1500; }
-        .upload-modal-inner { width:100%; max-height:86vh; border-top-left-radius:12px; border-top-right-radius:12px; background: rgba(10,10,10,0.98); padding:12px; }
-        .upload-modal-header { display:flex; justify-content:space-between; align-items:center; padding:8px 6px; }
-        .upload-modal-body { padding:8px; overflow:auto; }
-        .close-modal-btn { background:transparent; border:none; color:#fff; font-size:20px; }
+        .comment-avatar-small img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
 
-        /* MOBILE specific touch targets */
-        button, input[type="button"], input[type="submit"], .upload-action-btn { touch-action: manipulation; }
+        .comment-input-group {
+          flex: 1;
+          display: flex;
+          gap: 10px;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 51, 51, 0.3);
+          border-radius: 24px;
+          padding: 6px 6px 6px 16px;
+          transition: all 0.3s ease;
+        }
 
-        /* small helpers */
-        .empty-state { text-align:center; padding:40px 20px; border-radius:12px; }
+        .comment-input-group:focus-within {
+          border-color: #ff3333;
+        }
 
-        /* small animation for spinner */
-        .fa-spin { animation: fa-spin 1s linear infinite; }
-        @keyframes fa-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .comment-input {
+          flex: 1;
+          background: none;
+          border: none;
+          color: white;
+          font-size: 14px;
+          outline: none;
+        }
+
+        .comment-submit-btn {
+          background: linear-gradient(45deg, #ff3333, #ff6666);
+          border: none;
+          color: white;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.3s ease;
+          flex-shrink: 0;
+        }
+
+        .comment-submit-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .comment-submit-btn:not(:disabled):hover {
+          transform: scale(1.1);
+          box-shadow: 0 4px 12px rgba(255, 51, 51, 0.3);
+        }
+
+        /* RIGHT SIDEBAR */
+        .profile-card {
+          background: rgba(26, 0, 0, 0.8);
+          border: 1px solid rgba(255, 0, 0, 0.2);
+          border-radius: 16px;
+          padding: 24px;
+          backdrop-filter: blur(10px);
+        }
+
+        .profile-header {
+          text-align: center;
+          margin-bottom: 24px;
+        }
+
+        .profile-avatar {
+          width: 80px;
+          height: 80px;
+          border-radius: 50%;
+          overflow: hidden;
+          border: 3px solid #ff3333;
+          margin: 0 auto 16px;
+        }
+
+        .profile-avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .profile-info {
+          text-align: center;
+        }
+
+        .profile-name {
+          font-size: 18px;
+          font-weight: 700;
+          color: white;
+          margin-bottom: 4px;
+        }
+
+        .profile-email {
+          color: #888;
+          font-size: 14px;
+        }
+
+        .profile-stats {
+          display: flex;
+          justify-content: space-around;
+          border-top: 1px solid rgba(255, 255, 255, 0.05);
+          padding-top: 20px;
+        }
+
+        .profile-stat {
+          text-align: center;
+        }
+
+        .stat-value {
+          font-size: 20px;
+          font-weight: 700;
+          color: #ff3333;
+          margin-bottom: 4px;
+        }
+
+        .stat-label {
+          font-size: 12px;
+          color: #888;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        /* UTILITIES */
+        .fa-spin {
+          animation: fa-spin 1s linear infinite;
+        }
+
+        @keyframes fa-spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+
+        /* =================== MOBILE RESPONSIVE =================== */
+        @media (max-width: 1200px) {
+          .main-content {
+            grid-template-columns: 280px 1fr;
+          }
+          .right-sidebar {
+            display: none;
+          }
+          .header-center .search-input {
+            width: 70%;
+          }
+        }
+
+        @media (max-width: 1024px) {
+          .header {
+            padding: 0 16px;
+          }
+          .main-content {
+            grid-template-columns: 1fr;
+            gap: 16px;
+            margin-top: 70px;
+            padding: 0 16px 20px;
+          }
+          .sidebar {
+            position: static;
+            top: auto;
+          }
+          .left-sidebar {
+            display: block !important;
+          }
+          .upload-section {
+            margin-bottom: 0;
+          }
+          .header-left {
+            width: auto;
+          }
+          .header-right {
+            width: auto;
+          }
+          .header-center {
+            flex: 1;
+            padding: 0 10px;
+          }
+          .search-input {
+            width: 100%;
+            max-width: 400px;
+            min-width: 150px;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .header {
+            flex-wrap: wrap;
+            height: auto;
+            padding: 10px 16px;
+            gap: 10px;
+          }
+          
+          .header-left,
+          .header-center,
+          .header-right {
+            width: 100%;
+            justify-content: center;
+          }
+          
+          .header-left {
+            order: 1;
+          }
+          
+          .header-center {
+            order: 3;
+            margin-top: 10px;
+          }
+          
+          .header-right {
+            order: 2;
+            justify-content: flex-end;
+          }
+          
+          .user-info-header {
+            gap: 8px;
+          }
+          
+          .user-details {
+            display: none;
+          }
+          
+          .main-content {
+            margin-top: 100px;
+          }
+          
+          .post-card {
+            border-radius: 12px;
+          }
+          
+          .post-header {
+            padding: 15px;
+          }
+          
+          .post-caption {
+            padding: 0 15px 15px;
+            font-size: 14px;
+          }
+          
+          .post-media-container {
+            max-height: 400px;
+          }
+          
+          .post-media-image,
+          .post-media-video {
+            max-height: 400px;
+          }
+          
+          .comments-section {
+            padding: 15px;
+          }
+          
+          .comment-item.reply {
+            margin-left: 20px;
+          }
+          
+          .replies-container {
+            margin-left: 10px;
+            padding-left: 10px;
+          }
+          
+          .upload-section {
+            padding: 15px;
+          }
+          
+          .file-input-label {
+            padding: 15px;
+            flex-direction: column;
+            text-align: center;
+            gap: 10px;
+          }
+          
+          .file-input-icon {
+            width: 40px;
+            height: 40px;
+          }
+          
+          .upload-action-btn {
+            padding: 12px;
+            font-size: 14px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .header {
+            padding: 8px 12px;
+          }
+          
+          .logo {
+            font-size: 20px;
+          }
+          
+          .logo-icon {
+            font-size: 18px;
+          }
+          
+          .login-btn {
+            padding: 8px 16px;
+            font-size: 14px;
+          }
+          
+          .logout-btn {
+            width: 32px;
+            height: 32px;
+          }
+          
+          .user-avatar-header {
+            width: 32px;
+            height: 32px;
+          }
+          
+          .main-content {
+            margin-top: 90px;
+            padding: 0 12px 20px;
+            gap: 12px;
+          }
+          
+          .post-card {
+            border-radius: 10px;
+          }
+          
+          .post-avatar {
+            width: 40px;
+            height: 40px;
+          }
+          
+          .post-author-info {
+            gap: 8px;
+          }
+          
+          .author-name {
+            font-size: 14px;
+          }
+          
+          .post-time {
+            font-size: 12px;
+          }
+          
+          .post-caption {
+            padding: 0 12px 12px;
+            font-size: 13px;
+          }
+          
+          .post-actions {
+            padding: 12px;
+          }
+          
+          .post-action-btn {
+            font-size: 13px;
+            padding: 8px;
+          }
+          
+          .post-media-container {
+            max-height: 350px;
+          }
+          
+          .comments-section {
+            padding: 12px;
+          }
+          
+          .comment-avatar {
+            width: 32px;
+            height: 32px;
+          }
+          
+          .comment-author {
+            font-size: 13px;
+          }
+          
+          .comment-text {
+            font-size: 13px;
+          }
+          
+          .comment-actions {
+            flex-wrap: wrap;
+            gap: 8px;
+          }
+          
+          .comment-action-btn {
+            font-size: 11px;
+            padding: 3px 6px;
+          }
+          
+          .comment-input-wrapper {
+            gap: 8px;
+          }
+          
+          .comment-avatar-small {
+            width: 32px;
+            height: 32px;
+          }
+          
+          .comment-input {
+            font-size: 13px;
+          }
+          
+          .comment-submit-btn {
+            width: 28px;
+            height: 28px;
+          }
+          
+          .upload-section {
+            padding: 12px;
+            border-radius: 12px;
+          }
+          
+          .section-header h3 {
+            font-size: 16px;
+          }
+          
+          .file-input-label {
+            padding: 12px;
+          }
+          
+          .selected-files-list {
+            padding: 12px;
+          }
+          
+          .file-preview-item {
+            padding: 8px;
+            font-size: 12px;
+          }
+          
+          .upload-action-btn {
+            padding: 10px;
+            font-size: 13px;
+          }
+          
+          .profile-card {
+            padding: 15px;
+            border-radius: 12px;
+          }
+          
+          .profile-avatar {
+            width: 60px;
+            height: 60px;
+          }
+          
+          .profile-name {
+            font-size: 16px;
+          }
+          
+          .profile-email {
+            font-size: 13px;
+          }
+          
+          .stat-value {
+            font-size: 18px;
+          }
+        }
+
+        /* Mobile-specific improvements */
+        @media (max-width: 375px) {
+          .search-input {
+            font-size: 14px;
+            padding: 6px 10px;
+          }
+          
+          .reply-input-container {
+            flex-direction: column;
+            gap: 8px;
+          }
+          
+          .send-reply-btn {
+            align-self: flex-end;
+          }
+          
+          .files-preview {
+            max-height: 100px;
+            overflow-y: auto;
+          }
+        }
+
+        /* Touch-friendly adjustments */
+        @media (hover: none) and (pointer: coarse) {
+          button,
+          .comment-action-btn,
+          .post-action-btn,
+          .upload-action-btn {
+            min-height: 44px;
+            min-width: 44px;
+          }
+          
+          input,
+          textarea {
+            font-size: 16px; /* Prevents iOS zoom */
+          }
+          
+          .comment-input,
+          .search-input {
+            padding: 12px;
+          }
+        }
+
+        /* Safe area for notched phones */
+        @supports (padding: max(0px)) {
+          .header,
+          .main-content {
+            padding-left: max(16px, env(safe-area-inset-left));
+            padding-right: max(16px, env(safe-area-inset-right));
+          }
+          
+          .main-content {
+            padding-bottom: max(20px, env(safe-area-inset-bottom));
+          }
+        }
+
+        /* Animation improvements for mobile */
+        @media (prefers-reduced-motion: reduce) {
+          * {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+          }
+        }
       `}</style>
     </>
   );
