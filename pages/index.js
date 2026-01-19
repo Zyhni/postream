@@ -1,5 +1,6 @@
+// pages/index.js
 import Head from 'next/head';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { initFirebaseClient, getAuthInstance, getDbInstance } from '../lib/firebaseClient';
 import { GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { 
@@ -8,10 +9,7 @@ import {
   query, 
   orderBy, 
   getDocs, 
-  serverTimestamp,
-  doc,
-  updateDoc,
-  arrayUnion
+  serverTimestamp
 } from 'firebase/firestore';
 
 export default function Home() {
@@ -25,6 +23,8 @@ export default function Home() {
   const [showReplyInput, setShowReplyInput] = useState({});
   const [expandedReplies, setExpandedReplies] = useState({});
   const [uploading, setUploading] = useState(false);
+  const [postCaption, setPostCaption] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const authRef = useRef(null);
   const dbRef = useRef(null);
   const provider = new GoogleAuthProvider();
@@ -58,7 +58,6 @@ export default function Home() {
       const q = query(collection(dbRef.current, 'uploads'), orderBy('createdAt', 'desc'));
       const snap = await getDocs(q);
       const posts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
       setUploads(posts);
 
       // LOAD COMMENTS FOR EACH POST
@@ -138,7 +137,7 @@ export default function Home() {
     }
   }
 
-  // TOGGLE REPLY INPUT
+  // TOGGLES
   function toggleReplyInput(postId, commentId) {
     setShowReplyInput(prev => ({
       ...prev,
@@ -146,7 +145,6 @@ export default function Home() {
     }));
   }
 
-  // TOGGLE REPLY VISIBILITY
   function toggleReplies(postId, commentId) {
     setExpandedReplies(prev => ({
       ...prev,
@@ -154,13 +152,12 @@ export default function Home() {
     }));
   }
 
-  // UPLOAD HANDLER
+  // UPLOAD HANDLER (file(s) + caption)
   async function handleUploadAll() {
     if (!user) {
       alert("Please login first!");
       return;
     }
-    
     if (selectedFiles.length === 0) {
       alert("Please select files first!");
       return;
@@ -224,6 +221,7 @@ export default function Home() {
               fileName: uploadJson.original_filename || f.name,
               format: uploadJson.format,
               public_id: uploadJson.public_id,
+              text: postCaption || "",
               createdAt: serverTimestamp(),
               likes: 0,
               commentsCount: 0
@@ -242,7 +240,9 @@ export default function Home() {
         }
       }
 
+      // clear selection + caption, reload
       setSelectedFiles([]);
+      setPostCaption("");
       await loadRecent();
       alert("Upload completed successfully!");
       
@@ -254,7 +254,66 @@ export default function Home() {
     }
   }
 
-  // LOGIN HANDLER
+  // POST CAPTION ONLY (no file)
+  async function handlePostCaptionOnly() {
+    if (!user) {
+      alert("Please login first!");
+      return;
+    }
+    if (!postCaption?.trim()) {
+      alert("Caption is empty.");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      await addDoc(collection(dbRef.current, 'uploads'), {
+        ownerUid: user.uid,
+        ownerName: user.displayName,
+        ownerPhoto: user.photoURL || "",
+        url: "",
+        resource_type: "text",
+        fileName: "",
+        format: "",
+        public_id: "",
+        text: postCaption,
+        createdAt: serverTimestamp(),
+        likes: 0,
+        commentsCount: 0
+      });
+
+      setPostCaption("");
+      await loadRecent();
+      alert("Post created!");
+    } catch (e) {
+      console.error("Failed to create caption post:", e);
+      alert("Failed to post caption: " + (e.message || String(e)));
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  // NEW unified handler
+  async function handleCreatePost() {
+    // require user
+    if (!user) {
+      alert('Please login first!');
+      return;
+    }
+    // if files exist -> upload files (each will use postCaption)
+    if (selectedFiles.length > 0) {
+      await handleUploadAll();
+      return;
+    }
+    // else if caption exists -> caption-only
+    if (postCaption?.trim()) {
+      await handlePostCaptionOnly();
+      return;
+    }
+    alert('Nothing to post. Add a caption or select files.');
+  }
+
+  // LOGIN / LOGOUT
   async function handleLogin() {
     try {
       if (!authRef.current) {
@@ -281,7 +340,6 @@ export default function Home() {
     }
   }
 
-  // LOGOUT HANDLER
   async function handleLogout() {
     try {
       if (authRef.current) {
@@ -317,20 +375,20 @@ export default function Home() {
     }
   }
 
-  // DOWNLOAD HANDLER: try to fetch blob and trigger download, else open in new tab
+  // DOWNLOAD HANDLER
   async function handleDownload(post) {
-    if (!post || !post.url) return;
+    if (!post || !post.url) {
+      alert("No file to download.");
+      return;
+    }
     try {
       const res = await fetch(post.url, { mode: 'cors' });
       if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
       const blob = await res.blob();
-      // determine filename
       let filename = post.fileName || post.public_id || 'download';
-      // if format exists, ensure extension
       if (post.format && !filename.toLowerCase().endsWith('.' + post.format.toLowerCase())) {
         filename = `${filename}.${post.format}`;
       } else {
-        // try to extract name from URL if no extension present
         if (!/\.[a-zA-Z0-9]{1,6}$/.test(filename)) {
           const urlName = post.url.split('?')[0].split('/').pop();
           if (urlName) filename = urlName;
@@ -346,7 +404,6 @@ export default function Home() {
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Download failed, opening in new tab", err);
-      // fallback: open source URL in new tab
       window.open(post.url, '_blank');
     }
   }
@@ -424,6 +481,13 @@ export default function Home() {
     );
   }
 
+  // filtered uploads based on header search (case-insensitive match on caption/text)
+  const filteredUploads = useMemo(() => {
+    if (!searchQuery?.trim()) return uploads;
+    const q = searchQuery.trim().toLowerCase();
+    return uploads.filter(p => (p.text || "").toLowerCase().includes(q));
+  }, [uploads, searchQuery]);
+
   return (
     <>
       <Head>
@@ -440,6 +504,17 @@ export default function Home() {
               <i className="fas fa-fire logo-icon"></i>
               <span>POSTREAM</span>
             </div>
+          </div>
+
+          {/* SEARCH (center) */}
+          <div className="header-center">
+            <input
+              type="search"
+              placeholder="Search captions..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="search-input"
+            />
           </div>
           
           <div className="header-right">
@@ -485,6 +560,22 @@ export default function Home() {
                 </div>
                 
                 <div className="file-upload-area">
+                  <textarea
+                    placeholder="Caption..."
+                    value={postCaption}
+                    onChange={e => setPostCaption(e.target.value)}
+                    rows={3}
+                    style={{
+                      width: '100%',
+                      borderRadius: 8,
+                      padding: 10,
+                      resize: 'vertical',
+                      background: 'rgba(255,255,255,0.03)',
+                      color: '#fff',
+                      border: '1px solid rgba(255,51,51,0.15)'
+                    }}
+                  />
+
                   <label className="file-input-label">
                     <div className="file-input-icon">
                       <i className="fas fa-folder-open"></i>
@@ -525,23 +616,25 @@ export default function Home() {
                     </div>
                   )}
                   
-                  <button 
-                    className={`upload-action-btn ${uploading ? 'uploading' : ''}`}
-                    onClick={handleUploadAll}
-                    disabled={selectedFiles.length === 0 || uploading}
-                  >
-                    {uploading ? (
-                      <>
-                        <i className="fas fa-spinner fa-spin"></i>
-                        Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <i className="fas fa-upload"></i>
-                        Upload Now
-                      </>
-                    )}
-                  </button>
+                  <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+                    <button 
+                      className={`upload-action-btn ${uploading ? 'uploading' : ''}`}
+                      onClick={handleCreatePost}
+                      disabled={uploading || (selectedFiles.length === 0 && !postCaption.trim())}
+                    >
+                      {uploading ? (
+                        <>
+                          <i className="fas fa-spinner fa-spin"></i>
+                          Creating...
+                        </>
+                      ) : (
+                        <>
+                          <i className="fas fa-plus-circle"></i>
+                          Create Post
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -549,13 +642,13 @@ export default function Home() {
 
           {/* MAIN FEED */}
           <section className="main-feed">
-            {uploads.length === 0 ? (
+            {filteredUploads.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-state-icon">
                   <i className="fas fa-stream"></i>
                 </div>
                 <h3>Welcome to POSTREAM</h3>
-                <p>{user ? 'Share your first post!' : 'Login to start sharing content'}</p>
+                <p>{user ? 'No posts match your search.' : 'Login to start sharing content'}</p>
                 {!user && (
                   <button className="empty-state-btn" onClick={handleLogin}>
                     <i className="fab fa-google"></i> Get Started
@@ -563,7 +656,7 @@ export default function Home() {
                 )}
               </div>
             ) : (
-              uploads.map(post => (
+              filteredUploads.map(post => (
                 <article key={post.id} className="post-card">
                   {/* POST HEADER */}
                   <div className="post-header">
@@ -588,12 +681,14 @@ export default function Home() {
                       className="post-menu-btn download-btn"
                       title="Download"
                       onClick={() => handleDownload(post)}
+                      disabled={!post.url}
+                      aria-disabled={!post.url}
                     >
                       <i className="fas fa-download"></i>
                     </button>
                   </div>
 
-                  {/* POST CONTENT */}
+                  {/* POST CAPTION */}
                   {post.text && (
                     <div className="post-caption">
                       {post.text}
@@ -722,7 +817,7 @@ export default function Home() {
       </div>
 
       <style jsx global>{`
-        * {
+       {
           margin: 0;
           padding: 0;
           box-sizing: border-box;
@@ -737,46 +832,13 @@ export default function Home() {
         }
 
         /* HEADER */
-        .header {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 60px;
-          background: linear-gradient(90deg, #1a0000 0%, #330000 100%);
-          border-bottom: 1px solid rgba(255, 0, 0, 0.2);
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 0 24px;
-          z-index: 1000;
-          backdrop-filter: blur(10px);
-        }
-
-        .header-left {
-          display: flex;
-          align-items: center;
-        }
-
-        .logo {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          font-size: 24px;
-          font-weight: 800;
-          background: linear-gradient(45deg, #ff3333, #ff6666);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-
-        .logo-icon {
-          font-size: 28px;
-        }
-
-        .header-right {
-          display: flex;
-          align-items: center;
-        }
+        .header { position: fixed; top: 0; left: 0; right: 0; height: 60px; background: linear-gradient(90deg,#1a0000 0%,#330000 100%); border-bottom: 1px solid rgba(255,0,0,0.2); display:flex; align-items:center; padding:0 24px; z-index:1000; }
+        .header-left { display:flex; align-items:center; width: 240px; }
+        .logo { display:flex; align-items:center; gap:10px; font-size:24px; font-weight:800; background: linear-gradient(45deg,#ff3333,#ff6666); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .header-center { flex: 1; display:flex; justify-content:center; }
+        .search-input { width: 60%; max-width: 520px; min-width: 220px; padding: 8px 12px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02); color: #fff; outline: none; }
+        .search-input::placeholder { color: #bbb; }
+        .header-right { display:flex; align-items:center; gap:12px; width: 260px; justify-content:flex-end; }
 
         .login-btn {
           background: linear-gradient(45deg, #ff3333, #ff6666);
