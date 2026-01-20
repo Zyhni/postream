@@ -2,17 +2,23 @@
 
 Simple starter project: upload images/videos to Cloudinary (signed upload), store metadata in Firestore, Google sign-in (Firebase Auth), and per-post comments. Built with Next.js pages router and serverless signature.
 
+---
+
 ### 🔥 Fitur
 - Login with Google (Firebase Auth)
 - Signed upload to Cloudinary (server-side signature)
 - Save post metadata to Firestore
 - Add & view comments per post
 
+---
+
 ### 🧾 Prerequisites
 - Node.js (v18+ recommended)
 - npm atau yarn
 - Firebase project
 - Cloudinary account
+
+---
 
 ### 📁 Project structure
 ```js
@@ -25,6 +31,8 @@ lib/
 package.json
 .next/ (build)
 ```
+
+---
 
 ### ⚙️ Environment variables (.env.local)
 ```js
@@ -47,25 +55,28 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=
 FIREBASE_SERVICE_ACCOUNT={"type":"service_account","project_id":"...","private_key":"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n",...}
 ```
 
+---
+
 ### 🚀 Local setup & run
 1. Install deps
 ```js
 npm install
-# or
-yarn
 ```
 2. Create .env.local as shown above.
 3. Start dev server
 ```js
 npm run dev
-# default http://localhost:3000
 ```
+
+---
 
 ### ☁️ Cloudinary setup
 1. Create account at Cloudinary.
 2. In Dashboard copy cloud_name, api_key, api_secret.
 3. We use signed uploads: pages/api/signature.js generates signatures server-side using CLOUDINARY_API_SECRET. Do not expose the secret to the browser.
 4. Optionally configure upload presets in Cloudinary for formats, folder rules, transformations.
+
+---
 
 ### 🔐 Firebase setup
 1. Create Firebase project and enable Authentication → Sign-in method → Google.
@@ -89,6 +100,8 @@ service cloud.firestore {
   }
 }
 ```
+
+---
 
 ### 📄 License
 MIT — use/modify as you like. Please remove API keys & secrets before publishing the repo.
