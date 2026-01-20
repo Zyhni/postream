@@ -7,15 +7,12 @@ Simple starter project: upload images/videos to Cloudinary (signed upload), stor
 - Signed upload to Cloudinary (server-side signature)
 - Save post metadata to Firestore
 - Add & view comments per post
-- Dark “gothic red” UI
-- Ready to deploy to Vercel
 
 ### 🧾 Prerequisites
 - Node.js (v18+ recommended)
 - npm atau yarn
 - Firebase project
 - Cloudinary account
-- (Optional) Vercel account for deployment
 
 ### 📁 Project structure
 ```js
