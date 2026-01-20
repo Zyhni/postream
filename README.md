@@ -1,4 +1,4 @@
-Postream — Next.js + Firebase + Cloudinary (Gothic Red Feed)
+# Postream — Next.js + Firebase + Cloudinary (Gothic Red Feed)
 
 Simple starter project: upload images/videos to Cloudinary (signed upload), store metadata in Firestore, Google sign-in (Firebase Auth), and per-post comments. Built with Next.js pages router and serverless signature endpoint pages/api/signature.js.
 
